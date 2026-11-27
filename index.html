@@ -88,7 +88,8 @@ button.on{background:var(--sel);color:#14110a;border-color:var(--sel)}
 .empty{color:var(--mute)}
 .note{color:var(--mute);font-size:13px;margin-top:22px}
 .types{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:6px 0 18px}
-@media(max-width:760px){.types{grid-template-columns:minmax(0,1fr)}}
+.types.four{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:760px){.types,.types.four{grid-template-columns:minmax(0,1fr)}}
 .type{background:#0c1522;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
 .type h4{font:700 20px "Barlow Condensed",sans-serif;margin:0 0 2px;color:var(--sel)}
 .type .ex{color:var(--mute);font-size:14px;margin:0 0 6px}
@@ -301,9 +302,15 @@ compresseur:{n:"Compresseur",k:"Organe principal · cœur du circuit",z:"Fronti�
   l:[["Hermétique","Frigo, congélateur, climatiseur, petite chambre froide",["Moteur et compresseur enfermés dans une enveloppe en acier soudée.","Non démontable : en panne, on le remplace entièrement.","Moteur refroidi par les gaz aspirés.","Petites puissances."]],
    ["Semi-hermétique","Chambres froides, supermarchés, industrie",["Moteur et compresseur dans un carter boulonné.","Démontable et réparable : clapets, plaques à clapets, joints.","Moteur refroidi par les gaz aspirés.","Moyennes à grosses puissances."]],
    ["Ouvert","Grosses installations, ammoniac (NH₃), transport frigorifique",["Moteur séparé, à l'extérieur, entraînement par courroie ou accouplement.","Une garniture d'étanchéité sur l'arbre évite les fuites : point sensible.","Moteur refroidi par l'air ambiant.","Obligatoire avec l'ammoniac, qui attaque le cuivre du bobinage."]]],
-  tech:"Selon la façon de comprimer le gaz, on trouve aussi : à pistons, rotatif, scroll (deux spirales) et à vis."},
+  tech:{t:"Comment ils compriment : les technologies",
+   intro:"Chacun des 3 types peut utiliser une technologie différente pour comprimer le gaz. Toutes réduisent un volume de gaz enfermé : moins de place → plus de pression.",
+   l:[["À pistons (alternatif)","Le plus répandu : hermétique, semi-hermétique ou ouvert",["Le moteur fait tourner un vilebrequin qui fait monter et descendre le piston dans le cylindre, comme dans un moteur de voiture.","Aspiration : le piston descend, le clapet d'aspiration s'ouvre et le gaz BP entre.","Compression : le piston remonte, les deux clapets sont fermés, le volume diminue.","Refoulement : quand la pression dépasse la HP, le clapet de refoulement s'ouvre et le gaz part vers le condenseur.","Point faible : les clapets, cassés par un coup de liquide."]],
+    ["Rotatif (piston roulant ou palettes)","Petits climatiseurs, petits appareils, toujours hermétique",["Un rotor excentré tourne dans un cylindre.","Une palette appuyée sur le rotor sépare le côté aspiration du côté refoulement.","En tournant, le rotor écrase le volume de gaz piégé contre la paroi et le pousse vers le refoulement.","Compact, peu de pièces, mouvement continu donc moins de vibrations.","Petites puissances seulement."]],
+    ["Scroll (à spirales)","Climatisation, pompes à chaleur, chambres froides petites et moyennes",["Deux spirales imbriquées : une fixe, l'autre qui décrit un petit cercle sans tourner sur elle-même (mouvement orbital).","Le gaz est aspiré par l'extérieur des spirales et enfermé dans des poches en forme de croissant.","Les poches se déplacent vers le centre en devenant de plus en plus petites : le gaz se comprime.","Il sort au centre, par l'orifice de refoulement.","Silencieux, très peu de pièces, pas de clapets, bon rendement. Supporte un peu mieux le liquide qu'un piston."]],
+    ["À vis","Grosses puissances : industrie, entrepôts frigorifiques, groupes d'eau glacée",["Deux vis hélicoïdales qui s'engrènent (une mâle, une femelle) tournent en sens inverse, ou une seule vis avec des satellites.","Le gaz est piégé entre les filets et le carter.","En tournant, ce volume avance le long des vis et se réduit jusqu'au refoulement.","Compression continue, sans clapets ; beaucoup d'huile injectée pour l'étanchéité et le refroidissement, d'où un séparateur d'huile.","Puissance réglable par un tiroir de régulation ou un variateur de fréquence."]]],
+   more:"Il existe aussi le compresseur centrifuge (une turbine qui accélère le gaz puis le ralentit pour le comprimer), réservé aux très grosses installations de climatisation."}},
  pannes:["Coup de liquide : du liquide aspiré casse les clapets.","Manque d'huile → grippage.","Taux de compression trop élevé → surchauffe du moteur.","Déclenchement thermique ou pressostat."],
- memo:"Un compresseur ne comprime que du gaz, jamais de liquide : c'est pour cela qu'on surveille la surchauffe. Les 3 types : hermétique (soudé), semi-hermétique (boulonné, réparable), ouvert (moteur à l'extérieur)."},
+ memo:"Un compresseur ne comprime que du gaz, jamais de liquide : c'est pour cela qu'on surveille la surchauffe. Les 3 types : hermétique (soudé), semi-hermétique (boulonné, réparable), ouvert (moteur à l'extérieur). Les technologies : pistons, rotatif, scroll, vis."},
 refoulement:{n:"Conduite de refoulement",k:"Tuyauterie",z:"Haute pression",
  i:[15,75,V],o:[15,72,V],h:["","Échange :","faible perte de chaleur dans le tube, sans importance pour le cycle."],
  role:"Transporter la vapeur HP très chaude du compresseur jusqu'au condenseur.",
@@ -420,7 +427,7 @@ function show(id,scroll){
   parts.forEach(p=>p.classList.toggle('sel',p.dataset.id===id));
   const i=order.indexOf(id),prev=order[(i+order.length-1)%order.length],next=order[(i+1)%order.length];
   const zc=d.z.startsWith('Haute')?'hp':d.z.startsWith('Basse')?'bp':'mid';
-  const ty=d.types?`<h3>${d.types.t}</h3><p>${d.types.intro}</p><div class="types">${d.types.l.map(([n,ex,l])=>`<div class="type"><h4>${n}</h4><p class="ex">${ex}</p><ul>${li(l)}</ul></div>`).join('')}</div><p>${d.types.tech}</p>`:'';
+  const ty=d.types?`<h3>${d.types.t}</h3><p>${d.types.intro}</p><div class="types">${d.types.l.map(([n,ex,l])=>`<div class="type"><h4>${n}</h4><p class="ex">${ex}</p><ul>${li(l)}</ul></div>`).join('')}</div><h3>${d.types.tech.t}</h3><p>${d.types.tech.intro}</p><div class="types four">${d.types.tech.l.map(([n,ex,l])=>`<div class="type"><h4>${n}</h4><p class="ex">${ex}</p><ul>${li(l)}</ul></div>`).join('')}</div><p>${d.types.tech.more}</p>`:'';
   det.innerHTML=`<div class="dhead"><div><div class="kicker">${d.k}</div><h2>${d.n}</h2></div><span class="pill ${zc}">${d.z}</span></div>
   ${trans(d)}
   <p><strong>Rôle :</strong> ${d.role}</p>
