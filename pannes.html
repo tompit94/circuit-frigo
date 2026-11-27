@@ -207,6 +207,20 @@ button.bad{background:rgba(255,90,78,.18);border-color:var(--hp);color:#ff9d94}
     <text class="lbl air" x="1060" y="270" fill="#ff7a45" id="aCondOut">Air 35 °C</text>
     <text class="lbl s" x="995" y="448">chaleur rejetée</text>
 
+    <!-- Zones du condenseur et de l'évaporateur -->
+    <g class="tag zones">
+      <line id="zSRl" x1="914" y1="384" x2="1046" y2="384" stroke="#ffb35c" stroke-width="2" stroke-dasharray="5 4"/>
+      <rect id="zSRr" x="914" y="386" width="132" height="32" rx="6" fill="#ffb35c" opacity=".14"/>
+      <path id="zSRb" d="M906 386h-8v32h8" fill="none" stroke="#ffb35c" stroke-width="2"/>
+      <text x="892" y="398" text-anchor="end" fill="#ffb35c" font-size="15" font-weight="700">Sous-refroidissement</text>
+      <text x="892" y="417" text-anchor="end" fill="#ffb35c" font-size="15" font-weight="700" id="zSR">5 K (+40 → +35 °C)</text>
+      <line id="zSHl" x1="164" y1="332" x2="296" y2="332" stroke="#2fd3c0" stroke-width="2" stroke-dasharray="5 4"/>
+      <rect id="zSHr" x="164" y="302" width="132" height="30" rx="6" fill="#2fd3c0" opacity=".14"/>
+      <path id="zSHb" d="M304 302h8v30h-8" fill="none" stroke="#2fd3c0" stroke-width="2"/>
+      <text x="318" y="314" fill="#2fd3c0" font-size="15" font-weight="700">Surchauffe</text>
+      <text x="318" y="331" fill="#2fd3c0" font-size="15" font-weight="700" id="zSH">6 K (−10 → −4 °C)</text>
+    </g>
+
     <!-- Bouteille liquide -->
     <g class="cp" data-id="bouteille">
       <rect class="body" x="952" y="466" width="56" height="88" rx="24" fill="#1b2533" stroke="#cfd8e2" stroke-width="3"/>
@@ -398,6 +412,10 @@ function paint(f,showLoc){
   $('tLiq').textContent=`${v.hp} bar · ${T(v.tc-v.sr)}`;
   $('tMel').textContent=`${v.bp} bar · ${T(v.te)}`;
   $('tAsp').textContent=`${v.bp} bar · ${T(v.te+v.sh)}`;
+  $('zSR').textContent=`${v.sr} K (${T(v.tc)} → ${T(v.tc-v.sr)})`.replace(/ °C/g,'').replace(/\)$/,' °C)');
+  $('zSH').textContent=`${v.sh} K (${T(v.te)} → ${T(v.te+v.sh)})`.replace(/ °C/g,'').replace(/\)$/,' °C)');
+  {const h=Math.max(3,Math.min(100,v.sr*6.4)),y=418-h;$('zSRr').setAttribute('y',y);$('zSRr').setAttribute('height',h);$('zSRl').setAttribute('y1',y-2);$('zSRl').setAttribute('y2',y-2);$('zSRb').setAttribute('d',`M906 ${y}h-8v${h}h8`)}
+  {const h=Math.max(3,Math.min(110,v.sh*5)),y=302;$('zSHr').setAttribute('height',h);$('zSHl').setAttribute('y1',y+h);$('zSHl').setAttribute('y2',y+h);$('zSHb').setAttribute('d',`M304 ${y}h8v${h}h-8`)}
   svg.querySelectorAll('.fx').forEach(g=>g.classList.toggle('show',f.fx.includes(g.dataset.fx)));
   $('airCondIn').classList.toggle('stop',f.fan==='cond');$('airCondOut').classList.toggle('stop',f.fan==='cond');
   $('airEvapIn').classList.toggle('stop',f.fan==='evap');$('airEvapOut').classList.toggle('stop',f.fan==='evap');
