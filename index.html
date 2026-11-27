@@ -97,6 +97,10 @@ a.btn:hover{border-color:var(--hp)}a.btn:focus-visible{outline:3px solid var(--s
 .type .ex{color:var(--mute);font-size:14px;margin:0 0 6px}
 .type ul{padding-left:18px}.type li{margin:3px 0;font-size:15px}
 .wire{fill:none;stroke:#b08cff;stroke-width:2.5;stroke-dasharray:6 5}
+.anim{display:block;width:100%;max-width:300px;height:auto;margin:2px auto 6px;background:#0a121d;border:1px solid var(--line);border-radius:10px}
+.anim text{font:600 11px Barlow,sans-serif}
+.acap{min-height:2.6em;font-size:14px;font-weight:600;color:var(--sel);margin:0 0 6px;text-align:center}
+.techbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between}
 </style>
 </head>
 <body>
@@ -425,12 +429,123 @@ function trans(d){
    <div class="st"><span>Sortie</span><div class="v">${po} bar · ${T(to)}</div><em>${so}</em></div></div>
    <div class="heat ${d.h[0]}"><b>${d.h[1]}</b>${d.h[2]}</div>`;
 }
+// ─── Animations des technologies de compresseur ───
+const BPc=[58,160,255],HPc=[255,90,78];
+const col=k=>{k=Math.max(0,Math.min(1,k));return `rgb(${BPc.map((c,i)=>Math.round(c+(HPc[i]-c)*k)).join(',')})`};
+let animPaused=matchMedia('(prefers-reduced-motion:reduce)').matches,animRaf=0,animT=0,animLast=0;
+const ARR='<defs><marker id="aB" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#3aa0ff"/></marker><marker id="aR" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ff5a4e"/></marker></defs>';
+const ANIM_SVG=[
+ // Pistons
+ `<svg class="anim" id="anPiston" viewBox="0 0 240 240" aria-label="Animation du compresseur à pistons">${ARR}
+  <path d="M10 18H90V30" fill="none" stroke="#3aa0ff" stroke-width="8"/><path d="M150 30V18H230" fill="none" stroke="#ff5a4e" stroke-width="8"/>
+  <line id="pInA" x1="20" y1="10" x2="70" y2="10" stroke="#3aa0ff" stroke-width="3" marker-end="url(#aB)"/>
+  <line id="pOutA" x1="170" y1="10" x2="222" y2="10" stroke="#ff5a4e" stroke-width="3" marker-end="url(#aR)"/>
+  <text x="10" y="60" fill="#7cc0ff">aspiration</text><text x="174" y="60" fill="#ff8a80">refoulement</text>
+  <rect id="pGas" x="82" y="44" width="76" height="10"/>
+  <rect x="70" y="30" width="100" height="14" fill="#2a3a4e"/><rect x="84" y="30" width="12" height="14" fill="#0a121d"/><rect x="144" y="30" width="12" height="14" fill="#0a121d"/>
+  <rect id="pVin" x="82" y="44" width="16" height="4" fill="#cfd8e2"/><rect id="pVout" x="142" y="26" width="16" height="4" fill="#cfd8e2"/>
+  <line x1="80" y1="44" x2="80" y2="142" stroke="#cfd8e2" stroke-width="4"/><line x1="160" y1="44" x2="160" y2="142" stroke="#cfd8e2" stroke-width="4"/>
+  <rect id="pPis" x="82" y="52" width="76" height="26" rx="3" fill="#7f93a8"/>
+  <line id="pRod" stroke="#b6c3d1" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="120" cy="205" r="25" fill="none" stroke="#4a5a6c" stroke-width="3"/><circle cx="120" cy="205" r="5" fill="#4a5a6c"/>
+  <line id="pCrank" x1="120" y1="205" stroke="#b6c3d1" stroke-width="6" stroke-linecap="round"/>
+  <text x="180" y="210" fill="#9fb0c2">vilebrequin</text></svg><p class="acap" id="cPiston"></p>`,
+ // Rotatif
+ `<svg class="anim" id="anRot" viewBox="0 0 240 220" aria-label="Animation du compresseur rotatif">${ARR}
+  <path id="rA" fill="#3aa0ff" opacity=".75"/><path id="rB" opacity=".75"/>
+  <circle cx="120" cy="125" r="70" fill="none" stroke="#cfd8e2" stroke-width="4"/>
+  <circle id="rRot" r="50" fill="#5d6d80" stroke="#b6c3d1" stroke-width="2"/>
+  <line id="rEcc" x1="120" y1="125" stroke="#2a3a4e" stroke-width="5" stroke-linecap="round"/><circle cx="120" cy="125" r="5" fill="#2a3a4e"/>
+  <rect id="rVane" x="114" y="25" width="12" fill="#e9eef4"/><rect x="108" y="22" width="24" height="34" fill="none" stroke="#4a5a6c" stroke-width="2"/>
+  <path d="M188 68L218 40" stroke="#3aa0ff" stroke-width="7"/><line x1="232" y1="26" x2="206" y2="50" stroke="#3aa0ff" stroke-width="3" marker-end="url(#aB)"/>
+  <path d="M52 68L22 40" stroke="#ff5a4e" stroke-width="7"/><line id="rOutA" x1="40" y1="56" x2="14" y2="30" stroke="#ff5a4e" stroke-width="3" marker-end="url(#aR)"/>
+  <text x="236" y="26" fill="#7cc0ff" text-anchor="end" dy="-12">aspiration</text><text x="4" y="14" fill="#ff8a80">refoulement</text>
+  <text x="140" y="18" fill="#9fb0c2">palette</text></svg><p class="acap">Le rotor excentré roule contre la paroi : côté bleu le volume grandit (aspiration), côté rouge il rétrécit (compression).</p>`,
+ // Scroll
+ `<svg class="anim" id="anScroll" viewBox="0 0 240 220" aria-label="Animation du compresseur scroll">${ARR}
+  <circle cx="120" cy="112" r="66" fill="none" stroke="#4a5a6c" stroke-width="3"/>
+  <g id="sPk"></g>
+  <path id="sFix" fill="none" stroke="#cfd8e2" stroke-width="4" stroke-linecap="round"/>
+  <path id="sOrb" fill="none" stroke="#ffd23f" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="120" cy="112" r="6" fill="#ff5a4e"/>
+  <line x1="4" y1="112" x2="44" y2="112" stroke="#3aa0ff" stroke-width="3" marker-end="url(#aB)"/><line x1="236" y1="112" x2="196" y2="112" stroke="#3aa0ff" stroke-width="3" marker-end="url(#aB)"/>
+  <line x1="120" y1="112" x2="120" y2="212" stroke="#ff5a4e" stroke-width="3" stroke-dasharray="4 3"/><line x1="128" y1="196" x2="128" y2="214" stroke="#ff5a4e" stroke-width="0"/>
+  <text x="4" y="100" fill="#7cc0ff">aspiration</text><text x="126" y="206" fill="#ff8a80">refoulement au centre</text>
+  <text x="4" y="16" fill="#cfd8e2">spirale fixe</text><text x="236" y="16" fill="#ffd23f" text-anchor="end">spirale mobile</text></svg><p class="acap">La spirale mobile décrit un petit cercle : les poches de gaz avancent vers le centre en rétrécissant.</p>`,
+ // Vis
+ `<svg class="anim" id="anVis" viewBox="0 0 300 170" aria-label="Animation du compresseur à vis">${ARR}
+  <defs><clipPath id="vM"><rect x="40" y="30" width="220" height="50" rx="18"/></clipPath><clipPath id="vF"><rect x="40" y="86" width="220" height="50" rx="18"/></clipPath></defs>
+  <rect x="40" y="30" width="220" height="50" rx="18" fill="#4a5a6c"/><rect x="40" y="86" width="220" height="50" rx="18" fill="#3d4b5b"/>
+  <g id="vMs" clip-path="url(#vM)"></g><g id="vFs" clip-path="url(#vF)"></g>
+  <g id="vPk"></g>
+  <line x1="4" y1="83" x2="34" y2="83" stroke="#3aa0ff" stroke-width="3" marker-end="url(#aB)"/><line x1="264" y1="83" x2="296" y2="83" stroke="#ff5a4e" stroke-width="3" marker-end="url(#aR)"/>
+  <text x="4" y="160" fill="#7cc0ff">aspiration</text><text x="296" y="160" fill="#ff8a80" text-anchor="end">refoulement</text>
+  <text x="150" y="22" fill="#9fb0c2" text-anchor="middle">vis mâle</text><text x="150" y="152" fill="#9fb0c2" text-anchor="middle">vis femelle</text></svg><p class="acap">Les deux vis tournent en sens inverse : le gaz piégé entre les filets avance vers le refoulement en rétrécissant.</p>`
+];
+const q=id=>document.getElementById(id);
+function drawPiston(t){
+  const th=(t/4)%1*2*Math.PI,r=25,L=115,cy=205;
+  const pin=[120+r*Math.sin(th),cy-r*Math.cos(th)],wy=cy-(r*Math.cos(th)+Math.sqrt(L*L-(r*Math.sin(th))**2)),yp=wy-13,v=(yp-52)/50;
+  q('pPis').setAttribute('y',yp);q('pGas').setAttribute('height',Math.max(0,yp-44));
+  const rod=q('pRod');rod.setAttribute('x1',120);rod.setAttribute('y1',wy);rod.setAttribute('x2',pin[0]);rod.setAttribute('y2',pin[1]);
+  q('pCrank').setAttribute('x2',pin[0]);q('pCrank').setAttribute('y2',pin[1]);
+  const asp=th<Math.PI,ref=!asp&&v<.3;
+  q('pGas').setAttribute('fill',asp?col(0):ref?col(1):col((1-v)/.7));
+  q('pVin').setAttribute('y',asp?50:44);q('pVout').setAttribute('y',ref?20:26);
+  q('pInA').style.opacity=asp?1:.15;q('pOutA').style.opacity=ref?1:.15;
+  q('cPiston').textContent=asp?'1. Aspiration : le piston descend, le clapet d\'aspiration s\'ouvre.':ref?'3. Refoulement : la pression dépasse la HP, le clapet de refoulement s\'ouvre.':'2. Compression : les deux clapets sont fermés, le volume diminue.';
+}
+function drawRot(t){
+  const C=[120,125],R=70,r=50,e=20,s=(t/4)%1*360,ph=(270+s)*Math.PI/180;
+  const O=[C[0]+e*Math.cos(ph),C[1]+e*Math.sin(ph)];
+  q('rRot').setAttribute('cx',O[0]);q('rRot').setAttribute('cy',O[1]);q('rEcc').setAttribute('x2',O[0]);q('rEcc').setAttribute('y2',O[1]);
+  const tin=a=>e*Math.cos(a-ph)+Math.sqrt(r*r-(e*Math.sin(a-ph))**2);
+  const pocket=(a0,a1)=>{if(a1-a0<1)return '';let o=[],i=[];for(let k=0;k<=40;k++){const a=(a0+(a1-a0)*k/40)*Math.PI/180;o.push([C[0]+R*Math.cos(a),C[1]+R*Math.sin(a)]);i.push([C[0]+tin(a)*Math.cos(a),C[1]+tin(a)*Math.sin(a)])}
+   return 'M'+o.concat(i.reverse()).map(p=>p.map(n=>n.toFixed(1)).join(' ')).join('L')+'Z'};
+  q('rA').setAttribute('d',pocket(272,270+s));
+  q('rB').setAttribute('d',pocket(270+s,628));
+  const k=s/360;q('rB').setAttribute('fill',k>.75?col(1):col(k/.75));
+  q('rOutA').style.opacity=k>.75?1:.15;
+  q('rVane').setAttribute('height',Math.max(4,C[1]-tin(1.5*Math.PI)-25));
+}
+const INV=(a,t)=>[a*(Math.cos(t)+t*Math.sin(t)),a*(Math.sin(t)-t*Math.cos(t))];
+function drawScroll(t){
+  const a=3.6,tm=4.6*Math.PI,C=[120,112],th=(t/5)%1*2*Math.PI,e=Math.PI*a*.82,o=[e*Math.cos(th),e*Math.sin(th)];
+  const pts=f=>{let d='';for(let k=0;k<=160;k++){const p=f(tm*k/160);d+=(k?'L':'M')+(C[0]+p[0]).toFixed(1)+' '+(C[1]+p[1]).toFixed(1)}return d};
+  q('sFix').setAttribute('d',pts(u=>INV(a,u)));
+  q('sOrb').setAttribute('d',pts(u=>{const p=INV(a,u);return [-p[0]+o[0],-p[1]+o[1]]}));
+  let g='';const ph=(t/5)%1;
+  for(let k=0;k<3;k++){
+    const u=tm-Math.PI-(ph+k)*2*Math.PI;if(u<Math.PI*.6)continue;
+    const f1=INV(a,u),f2=INV(a,u+Math.PI);
+    const c1=[(f1[0]-f2[0]+o[0])/2,(f1[1]-f2[1]+o[1])/2],c2=[(-f1[0]+o[0]+f2[0])/2,(-f1[1]+o[1]+f2[1])/2];
+    const rr=Math.max(3,a*Math.PI*.55*(.45+.55*u/tm)),c=col(1-(u-Math.PI*.6)/(tm-Math.PI*1.6));
+    for(const p of [c1,c2])g+=`<circle cx="${(C[0]+p[0]).toFixed(1)}" cy="${(C[1]+p[1]).toFixed(1)}" r="${rr.toFixed(1)}" fill="${c}" opacity=".85"/>`;
+  }
+  q('sPk').innerHTML=g;
+}
+function drawVis(t){
+  const ph=(t/4)%1,sp=28;let m='',f='';
+  for(let x=-40+ph*sp;x<300;x+=sp){m+=`<line x1="${x}" y1="30" x2="${x+24}" y2="80" stroke="#b6c3d1" stroke-width="5"/>`;f+=`<line x1="${x+24}" y1="86" x2="${x}" y2="136" stroke="#9aa8b8" stroke-width="5"/>`}
+  q('vMs').innerHTML=m;q('vFs').innerHTML=f;
+  let g='';for(let k=0;k<3;k++){const p=(ph/3+k/3)%1,x=48+p*190,w=40*(1-.6*p);g+=`<rect x="${(x).toFixed(1)}" y="${(58+14*p).toFixed(1)}" width="${w.toFixed(1)}" height="${(50-28*p).toFixed(1)}" rx="8" fill="${col(p*1.15)}" opacity=".85"/>`}
+  q('vPk').innerHTML=g;
+}
+function animFrame(now){
+  if(!q('anPiston')){animRaf=0;return}
+  if(!animPaused)animT+=(now-(animLast||now))/1000;
+  animLast=now;
+  drawPiston(animT);drawRot(animT);drawScroll(animT);drawVis(animT);
+  animRaf=requestAnimationFrame(animFrame);
+}
+function startAnims(){if(q('anPiston')&&!animRaf){animLast=0;animRaf=requestAnimationFrame(animFrame)}}
+
 function show(id,scroll){
   const d=D[id];cur=id;
   parts.forEach(p=>p.classList.toggle('sel',p.dataset.id===id));
   const i=order.indexOf(id),prev=order[(i+order.length-1)%order.length],next=order[(i+1)%order.length];
   const zc=d.z.startsWith('Haute')?'hp':d.z.startsWith('Basse')?'bp':'mid';
-  const ty=d.types?`<h3>${d.types.t}</h3><p>${d.types.intro}</p><div class="types">${d.types.l.map(([n,ex,l])=>`<div class="type"><h4>${n}</h4><p class="ex">${ex}</p><ul>${li(l)}</ul></div>`).join('')}</div><h3>${d.types.tech.t}</h3><p>${d.types.tech.intro}</p><div class="types four">${d.types.tech.l.map(([n,ex,l])=>`<div class="type"><h4>${n}</h4><p class="ex">${ex}</p><ul>${li(l)}</ul></div>`).join('')}</div><p>${d.types.tech.more}</p>`:'';
+  const ty=d.types?`<h3>${d.types.t}</h3><p>${d.types.intro}</p><div class="types">${d.types.l.map(([n,ex,l])=>`<div class="type"><h4>${n}</h4><p class="ex">${ex}</p><ul>${li(l)}</ul></div>`).join('')}</div><div class="techbar"><h3>${d.types.tech.t}</h3><button type="button" id="animBtn">${animPaused?'▶ Lecture':'⏸ Pause'}</button></div><p>${d.types.tech.intro} Dans les animations, le gaz passe du bleu (basse pression) au rouge (haute pression).</p><div class="types four">${d.types.tech.l.map(([n,ex,l],i)=>`<div class="type">${ANIM_SVG[i]}<h4>${n}</h4><p class="ex">${ex}</p><ul>${li(l)}</ul></div>`).join('')}</div><p>${d.types.tech.more}</p>`:'';
   det.innerHTML=`<div class="dhead"><div><div class="kicker">${d.k}</div><h2>${d.n}</h2></div><span class="pill ${zc}">${d.z}</span></div>
   ${trans(d)}
   <p><strong>Rôle :</strong> ${d.role}</p>
@@ -438,9 +553,12 @@ function show(id,scroll){
   ${ty}
   <div class="memo"><b>À retenir :</b> ${d.memo}</div>
   <div class="nav"><button type="button" data-go="${prev}">← ${D[prev].n}</button><button type="button" data-go="${next}">${D[next].n} →</button></div>`;
+  startAnims();
   if(scroll)det.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth',block:'start'});
 }
-det.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(b)show(b.dataset.go,false)});
+det.addEventListener('click',e=>{
+  if(e.target.id==='animBtn'){animPaused=!animPaused;e.target.textContent=animPaused?'▶ Lecture':'⏸ Pause';return}
+  const b=e.target.closest('[data-go]');if(b)show(b.dataset.go,false)});
 
 function pick(id){
   if(!quiz){show(id,true);return}
