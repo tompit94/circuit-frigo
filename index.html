@@ -87,6 +87,13 @@ button.on{background:var(--sel);color:#14110a;border-color:var(--sel)}
 .nav{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
 .empty{color:var(--mute)}
 .note{color:var(--mute);font-size:13px;margin-top:22px}
+.types{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:6px 0 18px}
+@media(max-width:760px){.types{grid-template-columns:minmax(0,1fr)}}
+.type{background:#0c1522;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.type h4{font:700 20px "Barlow Condensed",sans-serif;margin:0 0 2px;color:var(--sel)}
+.type .ex{color:var(--mute);font-size:14px;margin:0 0 6px}
+.type ul{padding-left:18px}.type li{margin:3px 0;font-size:15px}
+.wire{fill:none;stroke:#b08cff;stroke-width:2.5;stroke-dasharray:6 5}
 </style>
 </head>
 <body>
@@ -145,6 +152,10 @@ button.on{background:var(--sel);color:#14110a;border-color:var(--sel)}
     <!-- Capillaire du bulbe -->
     <line x1="305" y1="118" x2="596" y2="596" stroke="#7f93a8" stroke-width="1.5" stroke-dasharray="3 5"/>
 
+    <!-- Régulation : sonde → thermostat → compresseur -->
+    <path class="wire" d="M40 446V655H520V262"/>
+    <path class="wire" d="M510 222H522V158L572 144"/>
+
     <!-- Étiquettes P / T -->
     <g class="tag"><rect x="770" y="36" width="180" height="50" rx="9" stroke="var(--hp)"/><text class="t1" x="784" y="56">Refoulement · vapeur</text><text class="t2" x="784" y="77" fill="#ff8a80">15 bar · +75 °C</text></g>
     <g class="tag"><rect x="995" y="556" width="185" height="50" rx="9" stroke="var(--liq)"/><text class="t1" x="1009" y="576">Ligne liquide · liquide</text><text class="t2" x="1009" y="597" fill="#ffb35c">15 bar · +35 °C</text></g>
@@ -174,6 +185,22 @@ button.on{background:var(--sel);color:#14110a;border-color:var(--sel)}
       <text x="478" y="61" text-anchor="middle" fill="var(--vap)" font-size="14" font-weight="700">BP</text>
     </g>
     <text class="lbl s" x="478" y="140" text-anchor="middle">Pressostat BP</text>
+
+    <!-- Sonde d'ambiance (reprise d'air de l'évaporateur) -->
+    <g class="part" data-id="sonde" tabindex="0">
+      <line x1="40" y1="398" x2="40" y2="446" stroke="#b08cff" stroke-width="3"/>
+      <rect class="body" x="31" y="388" width="18" height="30" rx="9" fill="#1d1830" stroke="#b08cff" stroke-width="2.5"/>
+    </g>
+    <text class="lbl s" x="40" y="476" text-anchor="middle">Sonde</text>
+
+    <!-- Thermostat -->
+    <g class="part" data-id="thermostat" tabindex="0">
+      <rect class="body" x="430" y="198" width="80" height="64" rx="10" fill="#1d1830" stroke="#b08cff" stroke-width="3"/>
+      <rect x="442" y="208" width="56" height="24" rx="4" fill="#0a121d"/>
+      <text x="470" y="226" text-anchor="middle" fill="#3ddc84" font-size="16" font-weight="700">+2.0</text>
+      <circle cx="456" cy="248" r="5" fill="#b08cff"/><circle cx="484" cy="248" r="5" fill="#7f93a8"/>
+    </g>
+    <text class="lbl s" x="470" y="288" text-anchor="middle">Thermostat</text>
 
     <!-- Bulbe -->
     <g class="part" data-id="bulbe" tabindex="0">
@@ -250,6 +277,7 @@ button.on{background:var(--sel);color:#14110a;border-color:var(--sel)}
     <span><i style="background:#ff9a3c"></i>liquide HP</span>
     <span><i style="background:#3aa0ff"></i>mélange BP froid</span>
     <span><i style="background:#2fd3c0"></i>vapeur BP</span>
+    <span><i style="background:#b08cff"></i>liaison électrique (sonde → thermostat → compresseur)</span>
     <span>Flèches : l'air qui traverse les échangeurs</span>
   </div>
   <p class="hint">Sur téléphone, faites glisser le schéma horizontalement si besoin.</p>
@@ -267,9 +295,15 @@ const D={
 compresseur:{n:"Compresseur",k:"Organe principal · cœur du circuit",z:"Frontière BP → HP",
  i:[2,0,V],o:[15,75,V],h:["w","Énergie apportée :","le moteur fournit le travail de compression. C'est cette énergie qui fait monter la pression et la température du gaz."],
  role:"Aspirer la vapeur basse pression venant de l'évaporateur et la comprimer jusqu'à la haute pression. C'est lui qui fait circuler le fluide dans tout le circuit.",
- fct:["Aspire la vapeur BP par la ligne d'aspiration.","La compression élève fortement la pression (2 → 15 bar) et la température (0 → +75 °C) du gaz.","Refoule une vapeur HP surchauffée vers le condenseur.","Seul organe qui consomme de l'énergie (moteur électrique).","Types courants : à pistons, scroll, à vis, rotatif."],
+ fct:["Aspire la vapeur BP par la ligne d'aspiration.","La compression élève fortement la pression (2 → 15 bar) et la température (0 → +75 °C) du gaz.","Refoule une vapeur HP surchauffée vers le condenseur.","Seul organe qui consomme de l'énergie (moteur électrique).","Démarré et arrêté par le thermostat (ou par le pressostat BP en pump-down)."],
+ types:{t:"Les 3 types de compresseurs",
+  intro:"On classe les compresseurs selon la façon dont le moteur et le compresseur sont assemblés.",
+  l:[["Hermétique","Frigo, congélateur, climatiseur, petite chambre froide",["Moteur et compresseur enfermés dans une enveloppe en acier soudée.","Non démontable : en panne, on le remplace entièrement.","Moteur refroidi par les gaz aspirés.","Petites puissances."]],
+   ["Semi-hermétique","Chambres froides, supermarchés, industrie",["Moteur et compresseur dans un carter boulonné.","Démontable et réparable : clapets, plaques à clapets, joints.","Moteur refroidi par les gaz aspirés.","Moyennes à grosses puissances."]],
+   ["Ouvert","Grosses installations, ammoniac (NH₃), transport frigorifique",["Moteur séparé, à l'extérieur, entraînement par courroie ou accouplement.","Une garniture d'étanchéité sur l'arbre évite les fuites : point sensible.","Moteur refroidi par l'air ambiant.","Obligatoire avec l'ammoniac, qui attaque le cuivre du bobinage."]]],
+  tech:"Selon la façon de comprimer le gaz, on trouve aussi : à pistons, rotatif, scroll (deux spirales) et à vis."},
  pannes:["Coup de liquide : du liquide aspiré casse les clapets.","Manque d'huile → grippage.","Taux de compression trop élevé → surchauffe du moteur.","Déclenchement thermique ou pressostat."],
- memo:"Un compresseur ne comprime que du gaz, jamais de liquide : c'est pour cela qu'on surveille la surchauffe."},
+ memo:"Un compresseur ne comprime que du gaz, jamais de liquide : c'est pour cela qu'on surveille la surchauffe. Les 3 types : hermétique (soudé), semi-hermétique (boulonné, réparable), ouvert (moteur à l'extérieur)."},
 refoulement:{n:"Conduite de refoulement",k:"Tuyauterie",z:"Haute pression",
  i:[15,75,V],o:[15,72,V],h:["","Échange :","faible perte de chaleur dans le tube, sans importance pour le cycle."],
  role:"Transporter la vapeur HP très chaude du compresseur jusqu'au condenseur.",
@@ -347,9 +381,21 @@ pressostatBP:{n:"Pressostat BP",k:"Organe de sécurité / régulation",z:"Basse 
  role:"Arrêter le compresseur si la basse pression descend trop bas, et servir à la régulation (pump-down).",
  fct:["Mesure la pression côté BP.","Coupe en dessous du seuil bas, réenclenche au-dessus du seuil haut (différentiel).","Réarmement généralement automatique.","En pump-down : l'électrovanne liquide ferme, la BP chute, le pressostat arrête le compresseur."],
  pannes:["Déclenche si : manque de fluide, évaporateur givré, ventilateur évaporateur HS, détendeur ou filtre bouché.","Cycles courts : différentiel trop faible ou manque de charge."],
- memo:"BP coupe quand ça descend trop : on pense manque de fluide ou évaporateur bloqué."}
+ memo:"BP coupe quand ça descend trop : on pense manque de fluide ou évaporateur bloqué."},
+sonde:{n:"Sonde de température",k:"Organe de régulation",z:"Chambre froide",
+ m:"Mesure la température de l'air de la chambre, à la reprise d'air de l'évaporateur (≈ +2 °C ici). Elle envoie cette valeur au thermostat.",
+ role:"Donner au thermostat la température réelle de la chambre froide.",
+ fct:["Placée dans l'air qui revient vers l'évaporateur (reprise d'air), là où la température représente bien la chambre.","Le plus souvent une thermistance (CTN ou PTC) : sa résistance varie avec la température.","Reliée au thermostat par un câble électrique (pointillés violets).","D'autres sondes peuvent exister : sonde de fin de dégivrage sur l'évaporateur, sonde de soufflage."],
+ pannes:["Sonde mal placée (près de la porte, dans le soufflage) → température mal régulée.","Sonde ou câble coupé → alarme ou défaut affiché sur le thermostat.","Contrôle : mesurer sa résistance à l'ohmmètre et la comparer au tableau du fabricant."],
+ memo:"La sonde mesure, le thermostat décide. On la place dans la reprise d'air, pas dans le soufflage."},
+thermostat:{n:"Thermostat (régulateur)",k:"Organe de régulation",z:"Commande électrique",ml:"Réglage :",
+ m:"Consigne 0 °C, différentiel 2 K : le compresseur démarre quand la chambre atteint +2 °C et s'arrête quand elle redescend à 0 °C.",
+ role:"Maintenir la chambre froide à la température voulue en mettant en marche ou en arrêtant la production de froid.",
+ fct:["Compare la température mesurée par la sonde à la consigne.","Au-dessus de la consigne + différentiel : il commande la marche (compresseur, ou électrovanne liquide).","Arrivé à la consigne : il coupe.","Le différentiel évite que le compresseur démarre et s'arrête sans cesse (cycles courts).","Les régulateurs électroniques gèrent aussi le dégivrage, les ventilateurs et les alarmes."],
+ pannes:["Consigne ou différentiel mal réglés → chambre trop chaude, trop froide, ou cycles courts.","Défaut sonde affiché → contrôler la sonde et son câble.","Contact de sortie collé → le compresseur ne s'arrête plus."],
+ memo:"Thermostat = consigne + différentiel. Il pilote le compresseur, directement ou via l'électrovanne liquide (pump-down)."}
 };
-const order=["compresseur","refoulement","pressostatHP","condenseur","bouteille","ligneLiquide","deshydrateur","voyant","detendeur","melange","evaporateur","aspiration","bulbe","pressostatBP"];
+const order=["compresseur","refoulement","pressostatHP","condenseur","bouteille","ligneLiquide","deshydrateur","voyant","detendeur","melange","evaporateur","aspiration","bulbe","pressostatBP","sonde","thermostat"];
 const svg=document.getElementById('svg'),det=document.getElementById('detail');
 const parts=[...svg.querySelectorAll('.part')];
 let cur=null,quiz=false,target=null,good=0,tot=0,answered=false;
@@ -361,7 +407,7 @@ function chip(d,u,lab){
 }
 function li(a){return a.map(x=>`<li>${x}</li>`).join('')}
 function trans(d){
-  if(d.m)return `<div class="heat w"><b>Mesure :</b>${d.m}</div>`;
+  if(d.m)return `<div class="heat w"><b>${d.ml||'Mesure :'}</b>${d.m}</div>`;
   const [pi,ti,si]=d.i,[po,to,so]=d.o;
   return `<div class="trans">
    <div class="st"><span>Entrée</span><div class="v">${pi} bar · ${T(ti)}</div><em>${si}</em></div>
@@ -374,10 +420,12 @@ function show(id,scroll){
   parts.forEach(p=>p.classList.toggle('sel',p.dataset.id===id));
   const i=order.indexOf(id),prev=order[(i+order.length-1)%order.length],next=order[(i+1)%order.length];
   const zc=d.z.startsWith('Haute')?'hp':d.z.startsWith('Basse')?'bp':'mid';
+  const ty=d.types?`<h3>${d.types.t}</h3><p>${d.types.intro}</p><div class="types">${d.types.l.map(([n,ex,l])=>`<div class="type"><h4>${n}</h4><p class="ex">${ex}</p><ul>${li(l)}</ul></div>`).join('')}</div><p>${d.types.tech}</p>`:'';
   det.innerHTML=`<div class="dhead"><div><div class="kicker">${d.k}</div><h2>${d.n}</h2></div><span class="pill ${zc}">${d.z}</span></div>
   ${trans(d)}
   <p><strong>Rôle :</strong> ${d.role}</p>
   <div class="cols"><div><h3>Fonctionnement</h3><ul>${li(d.fct)}</ul></div><div><h3>Pannes et contrôles</h3><ul>${li(d.pannes)}</ul></div></div>
+  ${ty}
   <div class="memo"><b>À retenir :</b> ${d.memo}</div>
   <div class="nav"><button type="button" data-go="${prev}">← ${D[prev].n}</button><button type="button" data-go="${next}">${D[next].n} →</button></div>`;
   if(scroll)det.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth',block:'start'});
