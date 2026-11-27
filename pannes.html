@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Simulation de pannes · circuit frigorifique</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Même planche que le schéma (index.html) : on y injecte une panne et on lit les symptômes
+   comme au manifold. Mode Explorer (on choisit la panne) et mode Diagnostic (on la trouve). */
+:root{color-scheme:dark;--bg:#0c1522;--panel:#13202f;--line:#24364a;--ink:#e9eef4;--mute:#9fb0c2;--hp:#ff5a4e;--liq:#ff9a3c;--bp:#3aa0ff;--vap:#2fd3c0;--sel:#ffd23f;--ok:#3ddc84}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Barlow,system-ui,sans-serif;overflow-x:clip}
+.band{padding:clamp(20px,3vw,40px) max(4vw,14px);max-width:1240px;margin:0 auto}
+h1,h2,h3{font-family:"Barlow Condensed",Barlow,sans-serif;line-height:1.05;margin:0;text-wrap:balance}
+h1{font-size:clamp(32px,5vw,48px)}
+.sub{color:var(--mute);margin:6px 0 0;max-width:70ch}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+a.back{color:var(--mute);text-decoration:none;font-weight:600}a.back:hover{color:var(--ink)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;align-items:center}
+button{font:600 15px Barlow,sans-serif;min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--mute)}button:focus-visible{outline:3px solid var(--sel);outline-offset:2px}
+button.on{background:var(--sel);color:#14110a;border-color:var(--sel)}
+button.good{background:rgba(61,220,132,.18);border-color:var(--ok);color:#9ff0c4}
+button.bad{background:rgba(255,90,78,.18);border-color:var(--hp);color:#ff9d94}
+.modes{display:inline-flex;border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px;background:var(--panel)}
+.modes button{border:0;min-height:40px}
+.faults{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.faults button{min-height:40px;font-size:14px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;margin-top:16px;align-items:start}
+@media(max-width:980px){.layout{grid-template-columns:minmax(0,1fr)}}
+.board{border:1px solid var(--line);border-radius:16px;background:#0a121d;overflow-x:auto}
+.board svg{display:block;width:100%;min-width:780px;height:auto}
+.lbl{fill:var(--ink);font:600 19px Barlow,sans-serif;pointer-events:none}
+.lbl.s{font-size:16px;font-weight:500;fill:var(--mute)}
+.lbl.air{font-size:16px;font-weight:700}
+.tag rect{fill:#0c1522;stroke-width:1.5}
+.tag .t1{font:500 14px Barlow,sans-serif;fill:var(--mute)}
+.tag .t2{font:700 17px Barlow,sans-serif}
+.zone{font:700 15px "Barlow Condensed",sans-serif;letter-spacing:.02em}
+.hit{display:none}
+.wire{fill:none;stroke:#b08cff;stroke-width:2.5;stroke-dasharray:6 5}
+.flow{fill:none;stroke-width:6;stroke-dasharray:12 9;animation:run 1.1s linear infinite}
+@keyframes run{to{stroke-dashoffset:-42}}
+.air{animation:push 1.6s ease-in-out infinite}
+@keyframes push{50%{transform:translateX(7px)}}
+.air.stop{animation:none;stroke:#4a5a6c!important}
+.air.stop line{marker-end:none}
+.fx{display:none}.fx.show{display:inline}
+.ring{fill:none;stroke:var(--hp);stroke-width:4;stroke-dasharray:10 7;animation:spin 6s linear infinite;transform-box:fill-box;transform-origin:center}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.flow,.air,.ring{animation:none}}
+.side{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.gauges{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gauges svg{width:100%;height:auto;display:block}
+.g-val{font:700 22px "Barlow Condensed",sans-serif;text-anchor:middle}
+.g-sub{font:500 12px Barlow,sans-serif;fill:var(--mute);text-anchor:middle}
+.g-tick{font:500 10px Barlow,sans-serif;fill:#7f93a8;text-anchor:middle}
+.reads{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;font-size:15px}
+.reads .k{color:var(--mute)}
+.reads .v{font-weight:700;text-align:right;white-space:nowrap}
+.chip{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px;border:1px solid var(--line)}
+.up{color:#ff8a80;border-color:rgba(255,90,78,.45)}.down{color:#7cc0ff;border-color:rgba(58,160,255,.45)}.eq{color:var(--ok);border-color:rgba(61,220,132,.4)}
+.cardh{font:700 18px "Barlow Condensed",sans-serif;margin:0 0 8px}
+#detail{margin-top:18px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:clamp(18px,3vw,28px)}
+#detail h2{font-size:clamp(26px,4vw,38px);margin-bottom:6px}
+#detail h3{font-size:21px;margin:14px 0 6px}
+#detail ul{margin:0;padding-left:20px}#detail li{margin:4px 0}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media(max-width:760px){.cols{grid-template-columns:minmax(0,1fr)}}
+.memo{margin-top:16px;padding:12px 14px;border-radius:10px;background:rgba(255,210,63,.1);border:1px solid rgba(255,210,63,.35)}
+.memo b{color:var(--sel)}
+.quizq{font-size:19px;margin:0 0 4px}.quizq b{color:var(--sel)}
+.score{font:700 20px "Barlow Condensed",sans-serif}
+.fb{font-weight:700;margin:10px 0 0}.fb.ok{color:var(--ok)}.fb.ko{color:#ff8a80}
+.hint{color:var(--mute);font-size:14px;margin:8px 2px 0}
+.note{color:var(--mute);font-size:13px;margin-top:22px}
+.table{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px}
+.table th,.table td{border-bottom:1px solid var(--line);padding:7px 6px;text-align:center;white-space:nowrap}
+.table th:first-child,.table td:first-child{text-align:left;white-space:normal}
+.tblwrap{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="band">
+  <div class="top"><a class="back" href="./">← Schéma du circuit</a></div>
+  <h1>Simulation de pannes</h1>
+  <p class="sub">Injectez une panne dans le circuit et lisez les symptômes comme au manifold : basse et haute pression, surchauffe, sous-refroidissement, température de refoulement, voyant, givre. En mode Diagnostic, c'est à vous de trouver la panne.</p>
+  <div class="bar">
+    <div class="modes" role="tablist">
+      <button id="mExp" class="on" type="button" role="tab" aria-selected="true">Explorer une panne</button>
+      <button id="mDia" type="button" role="tab" aria-selected="false">Diagnostic</button>
+    </div>
+    <span class="score" id="score" hidden>0 / 0</span>
+  </div>
+  <div class="faults" id="faults"></div>
+
+  <div class="layout">
+    <div>
+      <div class="board">
+<svg id="svg" viewBox="0 0 1200 700" role="img" aria-label="Schéma du circuit frigorifique">
+    <defs>
+      <marker id="arW" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#cfd8e2"/></marker><marker id="arR" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ff7a45"/></marker><marker id="arO" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ffb35c"/></marker><marker id="arB" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#4fc3f7"/></marker>
+      <linearGradient id="gCond" gradientUnits="userSpaceOnUse" x1="0" y1="230" x2="0" y2="420"><stop offset="0" stop-color="#ff3b30"/><stop offset=".25" stop-color="#ff5a4e"/><stop offset=".8" stop-color="#ff9a3c"/><stop offset="1" stop-color="#ffb35c"/></linearGradient>
+      <linearGradient id="gEvap" gradientUnits="userSpaceOnUse" x1="0" y1="520" x2="0" y2="300"><stop offset="0" stop-color="#3aa0ff"/><stop offset=".75" stop-color="#4fc3f7"/><stop offset="1" stop-color="#2fd3c0"/></linearGradient>
+    <pattern id="hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="10" height="10" fill="#3b2a18"/><line x1="0" y1="0" x2="0" y2="10" stroke="#7a5a33" stroke-width="5"/></pattern>
+    </defs>
+    <rect x="0" y="0" width="600" height="700" fill="#0b1726"/>
+    <rect x="600" y="0" width="600" height="700" fill="#1a1016"/>
+    <line x1="600" y1="0" x2="600" y2="700" stroke="#2a3a4e" stroke-dasharray="4 6"/>
+    <text class="zone" x="20" y="28" fill="#5aa9e6">ZONE BASSE PRESSION · FROID</text>
+    <text class="zone" x="1180" y="28" fill="#e8746b" text-anchor="end">ZONE HAUTE PRESSION · CHAUD</text>
+
+    <!-- Tuyauteries -->
+    <g class="cp" data-id="refoulement">
+      <path class="flow pipe body" d="M642 110H980V230" stroke="var(--hp)"/>
+      <path class="hit" d="M642 110H980V230"/>
+    </g>
+    <g class="cp" data-id="ligneLiquide">
+      <path class="flow pipe body" d="M980 420V620H635" stroke="var(--liq)"/>
+      <path class="hit" d="M980 420V620H635"/>
+    </g>
+    <g class="cp" data-id="melange">
+      <path class="flow pipe body" d="M565 620H230V520" stroke="var(--bp)"/>
+      <path class="hit" d="M565 620H230V520"/>
+    </g>
+    <g class="cp" data-id="aspiration">
+      <path class="flow pipe body" d="M230 300V110H558" stroke="var(--vap)"/>
+      <path class="hit" d="M230 300V110H558"/>
+    </g>
+
+    <!-- Capillaire du bulbe -->
+    <line x1="305" y1="118" x2="596" y2="596" stroke="#7f93a8" stroke-width="1.5" stroke-dasharray="3 5"/>
+
+    <!-- Régulation : sonde → thermostat → compresseur -->
+    <path class="wire" d="M40 446V655H520V262"/>
+    <path class="wire" d="M510 222H522V158L572 144"/>
+
+    <!-- Étiquettes P / T -->
+    <g class="tag"><rect x="770" y="36" width="180" height="50" rx="9" stroke="var(--hp)"/><text class="t1" x="784" y="56">Refoulement · vapeur</text><text class="t2" id="tRef" x="784" y="77" fill="#ff8a80">15 bar · +75 °C</text></g>
+    <g class="tag"><rect x="995" y="556" width="185" height="50" rx="9" stroke="var(--liq)"/><text class="t1" x="1009" y="576">Ligne liquide · liquide</text><text class="t2" id="tLiq" x="1009" y="597" fill="#ffb35c">15 bar · +35 °C</text></g>
+    <g class="tag"><rect x="284" y="556" width="200" height="50" rx="9" stroke="var(--bp)"/><text class="t1" x="298" y="576">Sortie détendeur · mélange</text><text class="t2" id="tMel" x="298" y="597" fill="#7cc0ff">2 bar · −10 °C</text></g>
+    <g class="tag"><rect x="34" y="150" width="180" height="50" rx="9" stroke="var(--vap)"/><text class="t1" x="48" y="170">Aspiration · vapeur</text><text class="t2" id="tAsp" x="48" y="191" fill="var(--vap)">2 bar · −4 → 0 °C</text></g>
+
+    <!-- Compresseur -->
+    <g class="cp" data-id="compresseur">
+      <circle class="body" cx="600" cy="110" r="42" fill="#1b2533" stroke="#e9eef4" stroke-width="4"/>
+      <circle cx="600" cy="110" r="26" fill="none" stroke="var(--hp)" stroke-width="4"/>
+      <path d="M592 96L614 110L592 124z" fill="var(--hp)"/>
+    </g>
+    <text class="lbl" x="600" y="180" text-anchor="middle">Compresseur</text>
+    <text class="lbl s" x="600" y="200" text-anchor="middle">+ énergie du moteur</text>
+
+    <!-- Pressostats -->
+    <g class="cp" data-id="pressostatHP">
+      <line x1="712" y1="72" x2="712" y2="108" stroke="var(--hp)" stroke-width="3"/>
+      <rect class="body" x="690" y="40" width="44" height="32" rx="6" fill="#2a1416" stroke="var(--hp)" stroke-width="2.5"/>
+      <text x="712" y="61" text-anchor="middle" fill="#ff8a80" font-size="14" font-weight="700">HP</text>
+    </g>
+    <text class="lbl s" x="712" y="140" text-anchor="middle">Pressostat HP</text>
+
+    <g class="cp" data-id="pressostatBP">
+      <line x1="478" y1="72" x2="478" y2="108" stroke="var(--vap)" stroke-width="3"/>
+      <rect class="body" x="456" y="40" width="44" height="32" rx="6" fill="#0f2427" stroke="var(--vap)" stroke-width="2.5"/>
+      <text x="478" y="61" text-anchor="middle" fill="var(--vap)" font-size="14" font-weight="700">BP</text>
+    </g>
+    <text class="lbl s" x="478" y="140" text-anchor="middle">Pressostat BP</text>
+
+    <!-- Sonde d'ambiance (reprise d'air de l'évaporateur) -->
+    <g class="cp" data-id="sonde">
+      <line x1="40" y1="398" x2="40" y2="446" stroke="#b08cff" stroke-width="3"/>
+      <rect class="body" x="31" y="388" width="18" height="30" rx="9" fill="#1d1830" stroke="#b08cff" stroke-width="2.5"/>
+    </g>
+    <text class="lbl s" x="40" y="476" text-anchor="middle">Sonde</text>
+
+    <!-- Thermostat -->
+    <g class="cp" data-id="thermostat">
+      <rect class="body" x="430" y="198" width="80" height="64" rx="10" fill="#1d1830" stroke="#b08cff" stroke-width="3"/>
+      <rect x="442" y="208" width="56" height="24" rx="4" fill="#0a121d"/>
+      <text x="470" y="226" text-anchor="middle" fill="#3ddc84" font-size="16" font-weight="700">+2.0</text>
+      <circle cx="456" cy="248" r="5" fill="#b08cff"/><circle cx="484" cy="248" r="5" fill="#7f93a8"/>
+    </g>
+    <text class="lbl s" x="470" y="288" text-anchor="middle">Thermostat</text>
+
+    <!-- Bulbe -->
+    <g class="cp" data-id="bulbe">
+      <rect class="body" x="290" y="100" width="30" height="20" rx="5" fill="#cfd8e2" stroke="#7f93a8" stroke-width="2"/>
+    </g>
+    <text class="lbl s" x="305" y="144" text-anchor="middle">Bulbe</text>
+
+    <!-- Condenseur -->
+    <g class="cp" data-id="condenseur">
+      <rect class="body" x="910" y="230" width="140" height="190" rx="14" fill="#221418" stroke="var(--liq)" stroke-width="3"/>
+      <path d="M980 230V246H935V276H1025V306H935V336H1025V366H935V396H980V420" fill="none" stroke="url(#gCond)" stroke-width="6" stroke-linejoin="round"/>
+    </g>
+    <text class="lbl" x="995" y="182">Condenseur</text>
+    <text class="lbl s" x="995" y="204">vapeur → liquide</text>
+    <g id="airCondIn" class="air" stroke="#cfd8e2" stroke-width="3">
+      <line x1="822" y1="290" x2="898" y2="290" marker-end="url(#arW)"/><line x1="822" y1="330" x2="898" y2="330" marker-end="url(#arW)"/><line x1="822" y1="370" x2="898" y2="370" marker-end="url(#arW)"/>
+    </g>
+    <g id="airCondOut" class="air" stroke="#ff7a45" stroke-width="3">
+      <line x1="1060" y1="290" x2="1136" y2="290" marker-end="url(#arR)"/><line x1="1060" y1="330" x2="1136" y2="330" marker-end="url(#arR)"/><line x1="1060" y1="370" x2="1136" y2="370" marker-end="url(#arR)"/>
+    </g>
+    <text class="lbl air" x="898" y="270" text-anchor="end" fill="#cfd8e2">Air 25 °C</text>
+    <text class="lbl air" x="1060" y="270" fill="#ff7a45" id="aCondOut">Air 35 °C</text>
+    <text class="lbl s" x="995" y="448">chaleur rejetée</text>
+
+    <!-- Bouteille liquide -->
+    <g class="cp" data-id="bouteille">
+      <rect class="body" x="952" y="466" width="56" height="88" rx="24" fill="#1b2533" stroke="#cfd8e2" stroke-width="3"/>
+      <path d="M955 512H1005V530A24 24 0 0 1 981 552H979A24 24 0 0 1 955 530Z" fill="#a85a1e"/>
+    </g>
+    <text class="lbl" x="940" y="516" text-anchor="end">Bouteille liquide</text>
+
+    <!-- Déshydrateur -->
+    <g class="cp" data-id="deshydrateur">
+      <rect class="body" x="818" y="604" width="74" height="32" rx="8" fill="#1b2533" stroke="#cfd8e2" stroke-width="2.5"/>
+      <line x1="835" y1="608" x2="835" y2="632" stroke="#7f93a8" stroke-width="2"/><line x1="875" y1="608" x2="875" y2="632" stroke="#7f93a8" stroke-width="2"/>
+    </g>
+    <text class="lbl" x="855" y="666" text-anchor="middle">Déshydrateur</text>
+
+    <!-- Voyant -->
+    <g class="cp" data-id="voyant">
+      <circle class="body" cx="730" cy="620" r="17" fill="#1b2533" stroke="#cfd8e2" stroke-width="2.5"/>
+      <circle cx="730" cy="620" r="8" fill="#3ddc84"/>
+    </g>
+    <text class="lbl" x="730" y="666" text-anchor="middle">Voyant</text>
+
+    <!-- Détendeur -->
+    <g class="cp" data-id="detendeur">
+      <rect class="body" x="565" y="594" width="70" height="52" rx="10" fill="#14202e" stroke="var(--bp)" stroke-width="3"/>
+      <path d="M576 604L600 620L576 636zM624 604L600 620L624 636z" fill="var(--bp)"/>
+      <rect x="592" y="584" width="16" height="10" rx="2" fill="#7f93a8"/>
+    </g>
+    <text class="lbl" x="600" y="672" text-anchor="middle">Détendeur</text>
+
+    <!-- Évaporateur -->
+    <g class="cp" data-id="evaporateur">
+      <rect class="body" x="160" y="300" width="140" height="220" rx="14" fill="#0f1d2d" stroke="var(--bp)" stroke-width="3"/>
+      <path d="M230 520V500H185V470H275V440H185V410H275V380H185V350H275V320H230V300" fill="none" stroke="url(#gEvap)" stroke-width="6" stroke-linejoin="round"/>
+    </g>
+    <text class="lbl" x="215" y="250" text-anchor="end">Évaporateur</text>
+    <text class="lbl s" x="215" y="272" text-anchor="end">liquide → vapeur</text>
+    <g id="airEvapIn" class="air" stroke="#ffb35c" stroke-width="3">
+      <line x1="72" y1="380" x2="148" y2="380" marker-end="url(#arO)"/><line x1="72" y1="420" x2="148" y2="420" marker-end="url(#arO)"/><line x1="72" y1="460" x2="148" y2="460" marker-end="url(#arO)"/>
+    </g>
+    <g id="airEvapOut" class="air" stroke="#4fc3f7" stroke-width="3">
+      <line x1="310" y1="380" x2="386" y2="380" marker-end="url(#arB)"/><line x1="310" y1="420" x2="386" y2="420" marker-end="url(#arB)"/><line x1="310" y1="460" x2="386" y2="460" marker-end="url(#arB)"/>
+    </g>
+    <text class="lbl air" x="148" y="360" text-anchor="end" fill="#ffb35c">Air +2 °C</text>
+    <text class="lbl air" x="310" y="360" fill="#4fc3f7" id="aEvapOut">Air −3 °C</text>
+    <text class="lbl s" x="245" y="546">chaleur absorbée</text>
+      <!-- Effets de panne -->
+    <g class="fx" data-fx="sale"><rect x="913" y="233" width="134" height="184" rx="12" fill="url(#hatch)" opacity=".8"/><text class="lbl s" x="980" y="440" text-anchor="middle" fill="#c9a36b">ailettes encrassées</text></g>
+    <g class="fx" data-fx="noyé"><rect x="913" y="340" width="134" height="77" rx="10" fill="#ff9a3c" opacity=".55"/><text class="lbl s" x="1058" y="410">liquide accumulé</text></g>
+    <g class="fx" data-fx="givreEvap"><rect x="156" y="296" width="148" height="228" rx="16" fill="rgba(230,242,255,.6)" stroke="#f4f9ff" stroke-width="4" stroke-dasharray="3 4"/><text class="lbl" x="230" y="416" text-anchor="middle" fill="#0b1726">GLACE</text></g>
+    <g class="fx" data-fx="givreAsp"><path d="M230 300V110H558" fill="none" stroke="rgba(244,249,255,.9)" stroke-width="16" stroke-linecap="round" stroke-dasharray="2 7"/></g>
+    <g class="fx" data-fx="givreComp"><circle cx="600" cy="110" r="50" fill="none" stroke="rgba(244,249,255,.95)" stroke-width="8" stroke-dasharray="3 6"/><text class="lbl s" x="600" y="222" text-anchor="middle" fill="#e6f2ff">carter givré</text></g>
+    <g class="fx" data-fx="givreFiltre"><rect x="816" y="602" width="38" height="36" rx="8" fill="rgba(244,249,255,.75)"/><path d="M816 620H770" stroke="rgba(244,249,255,.9)" stroke-width="14" stroke-dasharray="2 6"/><text class="lbl s" x="855" y="590" text-anchor="middle" fill="#e6f2ff">sortie froide</text></g>
+    <g class="fx" data-fx="givreDet"><rect x="561" y="590" width="78" height="60" rx="12" fill="none" stroke="rgba(244,249,255,.95)" stroke-width="6" stroke-dasharray="3 5"/></g>
+    <g class="fx" data-fx="bulles" fill="#fff"><circle cx="724" cy="616" r="3"/><circle cx="734" cy="623" r="2.5"/><circle cx="728" cy="626" r="2"/><circle cx="736" cy="613" r="2"/></g>
+    <g class="fx" data-fx="humide"><circle cx="730" cy="620" r="8" fill="#ffd23f"/></g>
+    <circle id="ring" class="ring" cx="600" cy="110" r="60"/>
+  </svg>
+      </div>
+      <p class="hint">Sur téléphone, faites glisser le schéma horizontalement si besoin. Le cercle rouge montre où se trouve la panne.</p>
+    </div>
+    <div class="side">
+      <div class="card"><p class="cardh">Manifold</p><div class="gauges" id="gauges"></div></div>
+      <div class="card"><p class="cardh">Mesures</p><div class="reads" id="reads"></div></div>
+    </div>
+  </div>
+
+  <section id="detail" aria-live="polite"></section>
+
+  <section id="detail2" style="margin-top:18px" class="card">
+    <h3 style="font-size:22px;margin:0">Tableau récapitulatif</h3>
+    <p class="hint" style="margin-top:4px">↑ plus haut que la normale · ↓ plus bas · = normal</p>
+    <div class="tblwrap"><table class="table" id="recap"></table></div>
+  </section>
+
+  <p class="note">Valeurs indicatives, sur la même base que le schéma : chambre froide positive, évaporation −10 °C (≈ 2 bar), condensation +40 °C (≈ 15 bar), air extérieur 25 °C. Une vraie panne ne donne pas toujours des valeurs aussi nettes : on croise toujours plusieurs mesures.</p>
+</div>
+
+<script>
+{
+// Valeurs : bp/hp en bar relatifs, te/tc températures de saturation (°C), sh surchauffe (K),
+// sr sous-refroidissement (K), tref refoulement (°C), tch chambre (°C), voy voyant.
+// fx : effets visibles sur le schéma ; fan : ventilateur arrêté ('cond' | 'evap').
+const N={bp:2,te:-10,hp:15,tc:40,sh:6,sr:5,tref:75,tch:2,voy:'clair'};
+const F=[
+{id:'normal',n:'Fonctionnement normal',v:N,fx:[],loc:null,
+ sym:['BP ≈ 2 bar (−10 °C), HP ≈ 15 bar (+40 °C).','Surchauffe 5 à 7 K, sous-refroidissement 4 à 7 K.','Voyant clair, refoulement ≈ +75 °C, chambre à la consigne.'],
+ why:'C\'est la référence : chaque panne se lit par comparaison avec ces valeurs.',
+ act:['Relever BP, HP, température d\'aspiration (au bulbe) et de ligne liquide.','Calculer surchauffe et sous-refroidissement.'],
+ memo:'Surchauffe = T aspiration − T évaporation. Sous-refroidissement = T condensation − T ligne liquide.'},
+{id:'manque',n:'Manque de fluide (fuite)',loc:'circuit',v:{bp:1.2,te:-18,hp:12.8,tc:33,sh:16,sr:1,tref:95,tch:7,voy:'bulles'},fx:['bulles'],
+ sym:['BP basse et HP basse.','Surchauffe forte, sous-refroidissement presque nul.','Bulles au voyant.','Refoulement très chaud, la chambre n\'atteint pas la consigne, le compresseur ne s\'arrête plus.'],
+ why:'Il n\'y a pas assez de fluide pour remplir l\'évaporateur : il s\'évapore trop tôt, la vapeur se réchauffe longtemps (surchauffe forte). Au condenseur, il reste trop peu de liquide pour se sous-refroidir, d\'où les bulles. Le compresseur, mal refroidi par une vapeur trop chaude, chauffe.',
+ act:['Chercher la fuite : détecteur électronique, produit moussant, traces d\'huile aux raccords.','Réparer, remplacer le déshydrateur, tirer au vide.','Recharger à la bascule, puis contrôler surchauffe et sous-refroidissement.'],
+ memo:'Manque de fluide : tout est bas (BP, HP, sous-refroidissement), sauf la surchauffe, très haute. Et des bulles au voyant.'},
+{id:'surcharge',n:'Excès de fluide (surcharge)',loc:'condenseur',v:{bp:2.3,te:-8,hp:18,tc:48,sh:5,sr:13,tref:85,tch:2,voy:'clair'},fx:['noyé'],
+ sym:['HP haute, BP un peu haute.','Sous-refroidissement très élevé.','Surchauffe normale ou un peu faible.','Voyant clair, intensité du compresseur en hausse.'],
+ why:'Le surplus de liquide s\'accumule dans le bas du condenseur. Il occupe de la surface d\'échange : il reste moins de place pour condenser, donc la pression de condensation monte. Ce liquide stocké a le temps de refroidir : sous-refroidissement élevé.',
+ act:['Vérifier la charge prévue par le constructeur.','Récupérer du fluide progressivement jusqu\'à un sous-refroidissement normal (4 à 7 K).'],
+ memo:'Surcharge : HP haute + sous-refroidissement très élevé + voyant clair.'},
+{id:'condSale',n:'Condenseur encrassé',loc:'condenseur',v:{bp:2.3,te:-8,hp:19.5,tc:52,sh:6,sr:5,tref:100,tch:3,voy:'clair'},fx:['sale'],airCond:'Air 40 °C',
+ sym:['HP très haute, BP un peu haute.','Surchauffe et sous-refroidissement normaux.','Refoulement très chaud, risque de coupure par le pressostat HP.','Ailettes du condenseur sales (poussière, feuilles, graisse).'],
+ why:'L\'air traverse mal les ailettes : il évacue moins de chaleur. Pour la rejeter quand même, le fluide doit condenser plus chaud, donc à plus haute pression. Le compresseur travaille plus et chauffe.',
+ act:['Nettoyer le condenseur (soufflette, brosse, produit adapté), redresser les ailettes.','Vérifier qu\'aucun obstacle ne gêne l\'arrivée ou la sortie d\'air.'],
+ memo:'HP haute avec sous-refroidissement normal : on regarde d\'abord le condenseur et son air.'},
+{id:'ventCond',n:'Ventilateur du condenseur HS',loc:'condenseur',v:{bp:2.4,te:-7,hp:22,tc:56,sh:6,sr:5,tref:108,tch:4,voy:'clair'},fx:[],fan:'cond',airCond:'Air immobile',
+ sym:['HP qui monte très vite, coupure par le pressostat HP.','Surchauffe et sous-refroidissement normaux.','Refoulement brûlant.','Le ventilateur ne tourne pas, pas de souffle d\'air chaud.'],
+ why:'Sans air forcé, le condenseur ne rejette presque plus de chaleur. La pression de condensation grimpe jusqu\'au déclenchement du pressostat HP.',
+ act:['Vérifier l\'alimentation du ventilateur, le condensateur, le moteur, les hélices.','Vérifier le pressostat de régulation de ventilation s\'il y en a un.'],
+ memo:'HP qui s\'envole + ventilateur à l\'arrêt : panne électrique ou mécanique du ventilateur.'},
+{id:'givre',n:'Évaporateur pris en glace',loc:'evaporateur',v:{bp:1.2,te:-18,hp:13.5,tc:35,sh:2,sr:5,tref:62,tch:8,voy:'clair'},fx:['givreEvap','givreAsp'],airEvap:'Air bloqué',
+ sym:['BP basse, HP un peu basse.','Surchauffe faible : risque de retour de liquide.','Évaporateur couvert de glace, aspiration givrée.','La chambre se réchauffe.'],
+ why:'La glace bouche les ailettes : l\'air ne passe plus et n\'apporte plus sa chaleur. Le fluide s\'évapore mal, la pression d\'évaporation baisse et du liquide peut ressortir de l\'évaporateur.',
+ act:['Faire un dégivrage complet.','Chercher la cause : dégivrage qui ne se fait pas (résistance, horloge, sonde de fin de dégivrage), porte mal fermée, ventilateur.'],
+ memo:'BP basse + surchauffe faible + glace : problème côté air de l\'évaporateur, pas de fluide.'},
+{id:'ventEvap',n:'Ventilateur de l\'évaporateur HS',loc:'evaporateur',v:{bp:1.0,te:-20,hp:13.2,tc:34,sh:1,sr:5,tref:58,tch:9,voy:'clair'},fx:['givreAsp'],fan:'evap',airEvap:'Air immobile',
+ sym:['BP très basse, coupure par le pressostat BP possible.','Surchauffe quasi nulle : retour de liquide.','Aspiration givrée jusqu\'au compresseur.','Pas de soufflage dans la chambre, elle se réchauffe vite.'],
+ why:'Sans air forcé, l\'évaporateur ne reçoit presque plus de chaleur : le liquide ne s\'évapore plus et repart vers le compresseur.',
+ act:['Vérifier l\'alimentation et le moteur du ventilateur, le contact de porte, la temporisation après dégivrage.'],
+ memo:'BP très basse + surchauffe nulle + pas de soufflage : ventilateur d\'évaporateur.'},
+{id:'detFerme',n:'Détendeur trop fermé ou bouché',loc:'detendeur',v:{bp:0.8,te:-22,hp:13,tc:35,sh:20,sr:9,tref:100,tch:7,voy:'clair'},fx:[],
+ sym:['BP très basse, HP un peu basse.','Surchauffe très forte.','Sous-refroidissement normal ou élevé, voyant clair.','Refoulement chaud, froid insuffisant.'],
+ why:'Le détendeur laisse passer trop peu de fluide : l\'évaporateur est sous-alimenté (comme un manque de fluide), mais le fluide est bien là, bloqué en amont dans le condenseur. D\'où un voyant clair et un sous-refroidissement correct ou haut.',
+ act:['Vérifier le réglage de surchauffe du détendeur.','Contrôler le bulbe : si son capillaire est coupé, le détendeur se ferme.','Nettoyer le tamis d\'entrée du détendeur.'],
+ memo:'Différence avec le manque de fluide : ici le voyant est clair et le sous-refroidissement n\'est pas nul.'},
+{id:'detOuvert',n:'Détendeur trop ouvert ou bulbe décroché',loc:'bulbe',v:{bp:2.6,te:-6,hp:14.5,tc:39,sh:0,sr:4,tref:50,tch:2,voy:'clair'},fx:['givreAsp','givreComp'],
+ sym:['BP haute.','Surchauffe nulle : du liquide revient au compresseur.','Aspiration et carter du compresseur givrés.','Refoulement anormalement froid, bruit de cognement possible (coup de liquide).'],
+ why:'Si le bulbe est décroché, il mesure une température plus chaude que la réalité : le détendeur croit la surchauffe trop forte et s\'ouvre en grand. L\'évaporateur est noyé, le liquide ressort vers le compresseur.',
+ act:['Arrêter rapidement : risque de casse des clapets.','Refixer le bulbe (position 4 h ou 8 h), le serrer et l\'isoler.','Régler la surchauffe du détendeur à 5–7 K.'],
+ memo:'Surchauffe nulle + givre jusqu\'au compresseur = retour de liquide. Premier suspect : le bulbe.'},
+{id:'filtre',n:'Filtre déshydrateur colmaté',loc:'deshydrateur',v:{bp:1.2,te:-18,hp:15.5,tc:41,sh:15,sr:8,tref:92,tch:6,voy:'bulles'},fx:['givreFiltre','bulles'],
+ sym:['BP basse, HP normale.','Surchauffe forte.','Sortie du filtre plus froide que l\'entrée, parfois givrée.','Bulles au voyant après le filtre, alors que le sous-refroidissement est bon.'],
+ why:'Le filtre bouché crée une chute de pression : une partie du liquide se vaporise dans le filtre, ce qui le refroidit et fait des bulles. Le détendeur reçoit trop peu de liquide.',
+ act:['Mesurer la température à l\'entrée et à la sortie du filtre : un écart de plus de 2 à 3 K confirme.','Remplacer le filtre (récupérer ou isoler le fluide), tirer au vide.'],
+ memo:'Bulles au voyant + bon sous-refroidissement + filtre froid à la sortie = filtre bouché, pas manque de fluide.'},
+{id:'incond',n:'Incondensables (air dans le circuit)',loc:'condenseur',v:{bp:2.2,te:-9,hp:19,tc:50,sh:6,sr:12,tref:95,tch:3,voy:'clair'},fx:[],
+ sym:['HP haute, aiguille du manomètre HP qui oscille.','Sous-refroidissement anormalement élevé (calculé à partir de la HP).','Refoulement chaud.','Souvent après une intervention mal tirée au vide.'],
+ why:'L\'air ne se condense pas : il prend de la place dans le condenseur et ajoute sa propre pression. La HP lue est plus haute que la pression du fluide seul, d\'où un sous-refroidissement calculé trop élevé.',
+ act:['Test à l\'arrêt : machine arrêtée, ventilateur du condenseur en marche, la pression doit correspondre à la température ambiante. Si elle est plus haute, il y a des incondensables.','Récupérer la charge, tirer au vide correctement, recharger.'],
+ memo:'HP haute qui oscille + pression trop haute à l\'arrêt = air dans le circuit.'},
+{id:'compresseur',n:'Compresseur inefficace (clapets usés)',loc:'compresseur',v:{bp:3,te:-3,hp:11.5,tc:29,sh:8,sr:3,tref:95,tch:8,voy:'clair'},fx:[],
+ sym:['BP haute et HP basse : l\'écart entre les deux est faible.','Intensité du compresseur faible, carter chaud.','Refoulement chaud.','La chambre n\'atteint pas la consigne.'],
+ why:'Les clapets ne sont plus étanches : une partie du gaz comprimé retourne côté aspiration. Le compresseur brasse du gaz sans arriver à créer l\'écart de pression.',
+ act:['Comparer l\'intensité à la valeur de la plaque.','Test de pompage : fermer la vanne d\'aspiration, la BP doit descendre rapidement.','Changer les clapets (semi-hermétique) ou le compresseur (hermétique).'],
+ memo:'BP haute + HP basse = compresseur qui ne comprime plus.'},
+{id:'humidite',n:'Humidité dans le circuit',loc:'detendeur',v:{bp:1.0,te:-20,hp:13.5,tc:35,sh:14,sr:7,tref:90,tch:6,voy:'humide'},fx:['givreDet','humide'],
+ sym:['BP qui chute par moments, puis remonte.','Surchauffe forte pendant les chutes.','Pastille du voyant jaune (humide).','Givre ou glace au niveau du détendeur.'],
+ why:'L\'eau gèle dans l\'orifice du détendeur, là où le fluide devient très froid : le passage se bouche, puis la glace fond à l\'arrêt et ça repart. L\'humidité forme aussi des acides avec l\'huile.',
+ act:['Remplacer le filtre déshydrateur (éventuellement plusieurs fois).','Tirer un vide poussé et long.','Rechercher l\'origine : circuit ouvert trop longtemps, huile humide.'],
+ memo:'Pastille jaune + BP en dents de scie + givre au détendeur = humidité.'}
+];
+const FB=Object.fromEntries(F.map(f=>[f.id,f]));
+const RING={compresseur:[600,110,62],condenseur:[980,325,125],evaporateur:[230,410,140],detendeur:[600,620,58],deshydrateur:[855,620,55],bulbe:[305,110,36]};
+const $=id=>document.getElementById(id);
+const T=t=>(t>0?'+'+t:t<0?'−'+Math.abs(t):'0')+' °C';
+const li=a=>a.map(x=>`<li>${x}</li>`).join('');
+
+// ─── Manifold ───
+function gauge(label,val,min,max,norm,color,sat){
+  const a0=-210,a1=30,ang=v=>a0+(Math.min(max,Math.max(min,v))-min)/(max-min)*(a1-a0);
+  const P=(a,r)=>[100+r*Math.cos(a*Math.PI/180),100+r*Math.sin(a*Math.PI/180)];
+  const arc=(s,e,r)=>{const[x0,y0]=P(s,r),[x1,y1]=P(e,r);return `M${x0} ${y0}A${r} ${r} 0 ${e-s>180?1:0} 1 ${x1} ${y1}`};
+  let ticks='';for(let v=min;v<=max;v+=(max-min)/5){const[x,y]=P(ang(v),60);ticks+=`<text class="g-tick" x="${x}" y="${y+4}">${Math.round(v)}</text>`}
+  const[nx,ny]=P(ang(val),70);
+  return `<svg viewBox="0 0 200 175" role="img" aria-label="${label} ${val} bar">
+   <path d="${arc(a0,a1,82)}" stroke="#24364a" stroke-width="10" fill="none"/>
+   <path d="${arc(ang(norm[0]),ang(norm[1]),82)}" stroke="#3ddc84" stroke-width="10" fill="none" opacity=".55"/>
+   ${ticks}
+   <line x1="100" y1="100" x2="${nx}" y2="${ny}" stroke="${color}" stroke-width="4" stroke-linecap="round"/>
+   <circle cx="100" cy="100" r="7" fill="${color}"/>
+   <text class="g-val" x="100" y="140" fill="${color}">${val} bar</text>
+   <text class="g-sub" x="100" y="158">${label} · ${sat}</text></svg>`;
+}
+function cmp(v,n,tol){const d=v-n;return Math.abs(d)<=tol?'<span class="chip eq">=</span>':`<span class="chip ${d>0?'up':'down'}">${d>0?'↑':'↓'}</span>`}
+const VOY={clair:'clair',bulles:'bulles',humide:'pastille jaune'};
+function readings(v){
+  $('gauges').innerHTML=gauge('BP',v.bp,-1,8,[1.6,2.4],'#3aa0ff','évap. '+T(v.te))+gauge('HP',v.hp,0,30,[13,17],'#ff5a4e','cond. '+T(v.tc));
+  const rows=[['Basse pression',`${v.bp} bar`,cmp(v.bp,N.bp,.3)],['Haute pression',`${v.hp} bar`,cmp(v.hp,N.hp,1)],
+   ['Surchauffe',`${v.sh} K`,cmp(v.sh,N.sh,1.5)],['Sous-refroidissement',`${v.sr} K`,cmp(v.sr,N.sr,1.5)],
+   ['T° refoulement',T(v.tref),cmp(v.tref,N.tref,6)],['T° chambre',T(v.tch),cmp(v.tch,N.tch,1)],
+   ['Voyant',VOY[v.voy],v.voy==='clair'?'<span class="chip eq">=</span>':'<span class="chip up">!</span>']];
+  $('reads').innerHTML=rows.map(([k,val,c])=>`<span class="k">${k}</span><span class="v">${val}${c}</span>`).join('');
+}
+
+// ─── Schéma ───
+const svg=$('svg');
+function paint(f,showLoc){
+  const v=f.v;
+  $('tRef').textContent=`${v.hp} bar · ${T(v.tref)}`;
+  $('tLiq').textContent=`${v.hp} bar · ${T(v.tc-v.sr)}`;
+  $('tMel').textContent=`${v.bp} bar · ${T(v.te)}`;
+  $('tAsp').textContent=`${v.bp} bar · ${T(v.te+v.sh)}`;
+  svg.querySelectorAll('.fx').forEach(g=>g.classList.toggle('show',f.fx.includes(g.dataset.fx)));
+  $('airCondIn').classList.toggle('stop',f.fan==='cond');$('airCondOut').classList.toggle('stop',f.fan==='cond');
+  $('airEvapIn').classList.toggle('stop',f.fan==='evap');$('airEvapOut').classList.toggle('stop',f.fan==='evap');
+  $('aCondOut').textContent=f.airCond||'Air 35 °C';$('aEvapOut').textContent=f.airEvap||'Air −3 °C';
+  const r=$('ring'),p=showLoc&&RING[f.loc];
+  r.style.display=p?'':'none';if(p){r.setAttribute('cx',p[0]);r.setAttribute('cy',p[1]);r.setAttribute('r',p[2])}
+  readings(v);
+}
+function explain(f){
+  return `<h2>${f.n}</h2>
+  <div class="cols"><div><h3>Ce qu'on constate</h3><ul>${li(f.sym)}</ul></div><div><h3>Pourquoi</h3><p style="margin:0">${f.why}</p></div></div>
+  <h3>Vérifications et remède</h3><ul>${li(f.act)}</ul>
+  <div class="memo"><b>À retenir :</b> ${f.memo}</div>`;
+}
+
+// ─── Modes ───
+let mode='exp',cur='normal',target=null,answered=false,good=0,tot=0;
+function renderFaults(){
+  const list=mode==='exp'?F:F.filter(f=>f.id!=='normal');
+  $('faults').innerHTML=(mode==='dia'?'<p class="quizq" style="flex-basis:100%">Quelle est la panne ? <span class="hint">Lisez le manifold, les mesures et le schéma.</span></p>':'')+
+   list.map(f=>`<button type="button" data-f="${f.id}" class="${mode==='exp'&&f.id===cur?'on':''}">${f.n}</button>`).join('')+
+   (mode==='dia'?'<button type="button" id="next" style="margin-left:auto">Panne suivante →</button>':'');
+}
+function explore(id){
+  cur=id;const f=FB[id];renderFaults();paint(f,true);$('detail').innerHTML=explain(f);
+}
+function newCase(){
+  let n;do{n=F[1+Math.floor(Math.random()*(F.length-1))].id}while(n===target);
+  target=n;answered=false;renderFaults();paint(FB[n],false);
+  $('detail').innerHTML='<p class="hint" style="margin:0">Choisissez une panne dans la liste : l\'explication s\'affichera après votre réponse.</p>';
+}
+function answer(id){
+  if(answered)return;answered=true;tot++;
+  const ok=id===target;if(ok)good++;
+  $('score').textContent=`${good} / ${tot}`;
+  $('faults').querySelector(`[data-f="${id}"]`).classList.add(ok?'good':'bad');
+  if(!ok)$('faults').querySelector(`[data-f="${target}"]`).classList.add('good');
+  paint(FB[target],true);
+  $('detail').innerHTML=`<p class="fb ${ok?'ok':'ko'}">${ok?'Bien vu !':'Non : c\'était « '+FB[target].n+' ».'}</p>`+explain(FB[target]);
+}
+$('faults').addEventListener('click',e=>{
+  if(e.target.id==='next'){newCase();return}
+  const b=e.target.closest('[data-f]');if(!b)return;
+  mode==='exp'?explore(b.dataset.f):answer(b.dataset.f);
+});
+function setMode(m){
+  mode=m;$('mExp').classList.toggle('on',m==='exp');$('mDia').classList.toggle('on',m==='dia');
+  $('mExp').setAttribute('aria-selected',m==='exp');$('mDia').setAttribute('aria-selected',m==='dia');
+  $('score').hidden=m!=='dia';$('detail2').hidden=m==='dia';
+  if(m==='dia'){good=0;tot=0;$('score').textContent='0 / 0';newCase()}else explore(cur);
+}
+$('mExp').onclick=()=>setMode('exp');$('mDia').onclick=()=>setMode('dia');
+
+// ─── Tableau récapitulatif ───
+const arrow=(v,n,tol)=>Math.abs(v-n)<=tol?'=':v>n?(v-n>3*tol?'↑↑':'↑'):(n-v>3*tol?'↓↓':'↓');
+$('recap').innerHTML='<tr><th>Panne</th><th>BP</th><th>HP</th><th>Surch.</th><th>S-refr.</th><th>Refoul.</th><th>Voyant</th></tr>'+
+ F.filter(f=>f.id!=='normal').map(f=>{const v=f.v;return `<tr><td>${f.n}</td><td>${arrow(v.bp,N.bp,.3)}</td><td>${arrow(v.hp,N.hp,1)}</td><td>${arrow(v.sh,N.sh,1.5)}</td><td>${arrow(v.sr,N.sr,1.5)}</td><td>${arrow(v.tref,N.tref,6)}</td><td>${VOY[v.voy]}</td></tr>`}).join('');
+
+explore('normal');
+}
+</script>
+</body>
+</html>

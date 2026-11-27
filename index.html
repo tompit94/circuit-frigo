@@ -24,6 +24,8 @@ h1{font-size:clamp(32px,5vw,48px)}
 button{font:600 15px Barlow,sans-serif;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
 button:hover{border-color:var(--mute)}button:focus-visible,.part:focus-visible{outline:3px solid var(--sel);outline-offset:2px}
 button.on{background:var(--sel);color:#14110a;border-color:var(--sel)}
+a.btn{display:inline-flex;align-items:center;font:700 15px Barlow,sans-serif;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid rgba(255,90,78,.5);background:rgba(255,90,78,.12);color:#ffb0a8;text-decoration:none}
+a.btn:hover{border-color:var(--hp)}a.btn:focus-visible{outline:3px solid var(--sel);outline-offset:2px}
 .pill{font-weight:600;font-size:14px;padding:6px 12px;border-radius:999px;white-space:nowrap}
 .pill.hp{background:rgba(255,90,78,.14);color:#ff8a80;border:1px solid rgba(255,90,78,.4)}
 .pill.bp{background:rgba(58,160,255,.14);color:#7cc0ff;border:1px solid rgba(58,160,255,.4)}
@@ -110,6 +112,7 @@ button.on{background:var(--sel);color:#14110a;border-color:var(--sel)}
     <button id="bTags" type="button">Masquer P / T</button>
     <button id="bAnim" type="button">Pause</button>
     <button id="bQuiz" type="button">Mode entraînement</button>
+    <a class="btn" href="pannes.html">Simulation de pannes →</a>
   </div>
 
   <div class="quiz" id="quiz">
